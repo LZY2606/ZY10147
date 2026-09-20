@@ -1,0 +1,107 @@
+{
+  "platform": "macos",
+  "arch": "aarch64",
+  "extractor": {
+    "name": "llvm-readobj",
+    "version": "19",
+    "source": "pipeline://widget/1.1.0/macos-arm64"
+  },
+  "components": [
+    {
+      "stable_id": "widget.dll",
+      "name": "widget.dll",
+      "kind": "LIB",
+      "boundary": "PUBLIC"
+    }
+  ],
+  "symbols": [
+    {
+      "stable_id": "wgt_render_v2",
+      "component": "widget.dll",
+      "name": "_wgt_render_v2",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "EXPORT",
+      "binding": "GLOBAL",
+      "detail": {
+        "return_type": "int",
+        "params": [
+          {
+            "name": "b",
+            "type": "struct wgt_box*"
+          }
+        ]
+      },
+      "calling_convention": "AAPCS",
+      "variadic": false,
+      "zero_sized": false
+    },
+    {
+      "stable_id": "wgt_box",
+      "component": "widget.dll",
+      "name": "wgt_box",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "EXPORT",
+      "binding": "GLOBAL",
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_box",
+        "tail_padding": false,
+        "tail_padding_bytes": 0,
+        "fields": [
+          {
+            "stable_id": "w",
+            "name": "w",
+            "type": "int64_t",
+            "offset": 0,
+            "size": 8,
+            "align": 8
+          },
+          {
+            "stable_id": "h",
+            "name": "h",
+            "type": "int64_t",
+            "offset": 8,
+            "size": 8,
+            "align": 8
+          }
+        ]
+      },
+      "variadic": false,
+      "size": 16,
+      "align": 8,
+      "zero_sized": false
+    },
+    {
+      "stable_id": "wgt_paint",
+      "component": "widget.dll",
+      "name": "_wgt_paint",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "EXPORT",
+      "binding": "WEAK",
+      "detail": {
+        "return_type": "void",
+        "params": []
+      },
+      "calling_convention": "AAPCS",
+      "variadic": false,
+      "zero_sized": false
+    }
+  ],
+  "aliases": [
+    {
+      "stable_id": "wgt_render_v2",
+      "alias": "_wgt_render",
+      "kind": "WEAK_ALIAS"
+    }
+  ],
+  "refs": [
+    {
+      "from": "wgt_render_v2",
+      "to": "wgt_box",
+      "kind": "PARAM"
+    }
+  ]
+}

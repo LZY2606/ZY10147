@@ -1,0 +1,119 @@
+{
+  "platform": "windows",
+  "arch": "x86_64",
+  "extractor": {
+    "name": "dumpbin",
+    "version": "14.40",
+    "source": "pipeline://widget/1.1.0/win-x64"
+  },
+  "components": [
+    {
+      "stable_id": "widget.dll",
+      "name": "widget.dll",
+      "kind": "LIB",
+      "boundary": "PUBLIC"
+    }
+  ],
+  "symbols": [
+    {
+      "stable_id": "wgt_draw",
+      "component": "widget.dll",
+      "name": "?wgt_draw@@YAHPEAUwgt_ctx@@I@Z",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "EXPORT",
+      "binding": "GLOBAL",
+      "detail": {
+        "return_type": "int",
+        "params": [
+          {
+            "name": "ctx",
+            "type": "struct wgt_ctx*"
+          },
+          {
+            "name": "flags",
+            "type": "uint32_t"
+          }
+        ]
+      },
+      "calling_convention": "VECTORCALL",
+      "variadic": false,
+      "zero_sized": false
+    },
+    {
+      "stable_id": "wgt_point",
+      "component": "widget.dll",
+      "name": "wgt_point",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "EXPORT",
+      "binding": "GLOBAL",
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_point",
+        "tail_padding": false,
+        "tail_padding_bytes": 0,
+        "fields": [
+          {
+            "stable_id": "x",
+            "name": "x",
+            "type": "int64_t",
+            "offset": 0,
+            "size": 8,
+            "align": 8
+          },
+          {
+            "stable_id": "z",
+            "name": "z",
+            "type": "int64_t",
+            "offset": 8,
+            "size": 8,
+            "align": 8
+          },
+          {
+            "stable_id": "y",
+            "name": "y",
+            "type": "int64_t",
+            "offset": 16,
+            "size": 8,
+            "align": 8
+          }
+        ]
+      },
+      "variadic": false,
+      "size": 24,
+      "align": 8,
+      "zero_sized": false
+    },
+    {
+      "stable_id": "wgt_create",
+      "component": "widget.dll",
+      "name": "CreateWidget",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "HIDDEN",
+      "binding": "GLOBAL",
+      "detail": {
+        "return_type": "void*",
+        "params": []
+      },
+      "calling_convention": "STDCALL",
+      "variadic": false,
+      "zero_sized": false
+    }
+  ],
+  "aliases": [
+    {
+      "stable_id": "wgt_draw",
+      "alias": "wgt_draw",
+      "kind": "PLATFORM_NAME"
+    }
+  ],
+  "refs": [
+    {
+      "from": "wgt_draw",
+      "to": "wgt_point",
+      "kind": "PARAM"
+    }
+  ]
+}

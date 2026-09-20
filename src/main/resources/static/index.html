@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>ABI Diff — 发行版 ABI 影响比较</title>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<header>
+  <h1>ABI Diff</h1>
+  <nav>
+    <a href="#" data-tab="diff" class="active">差异比较</a>
+    <a href="#" data-tab="graph">引用图</a>
+    <a href="#" data-tab="snapshots">快照 / 导入</a>
+    <a href="#" data-tab="rules">平台规则</a>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ DIFF TAB ============ -->
+  <section id="tab-diff" class="tab">
+    <div class="toolbar">
+      <label>左（旧）<select id="leftSnap"></select></label>
+      <label>右（新）<select id="rightSnap"></select></label>
+      <label>规则集
+        <select id="rulesetSel"></select>
+      </label>
+      <button id="compareBtn">原子比较</button>
+      <button id="demoExBtn" title="预置一个已过期例外（只在 linux 比较上生效）">播种过期例外演示</button>
+      <span id="cmpMeta" class="meta"></span>
+    </div>
+    <div id="summary" class="summary"></div>
+
+    <div class="platform-cols">
+      <div>
+        <h3>linux 结论</h3><div id="col-linux" class="col"></div>
+      </div>
+      <div>
+        <h3>windows 结论</h3><div id="col-windows" class="col"></div>
+      </div>
+      <div>
+        <h3>macos 结论</h3><div id="col-macos" class="col"></div>
+      </div>
+    </div>
+
+    <h2>按组件分组的变化</h2>
+    <div id="findings"></div>
+  </section>
+
+  <!-- ============ GRAPH TAB ============ -->
+  <section id="tab-graph" class="tab hidden">
+    <div class="toolbar">
+      <label>比较 <select id="graphCmp"></select></label>
+      <button id="graphBtn">加载引用图</button>
+      <span class="meta">沿 CALL/PARAM/FIELD 边从变化符号回溯到公开入口</span>
+    </div>
+    <svg id="graphSvg" width="100%" height="640"></svg>
+    <div id="graphLegend" class="legend"></div>
+  </section>
+
+  <!-- ============ SNAPSHOTS TAB ============ -->
+  <section id="tab-snapshots" class="tab hidden">
+    <h2>发行版与快照（按内容哈希去重）</h2>
+    <div id="snapList"></div>
+
+    <h2>导入提取器 JSON</h2>
+    <form id="importForm" class="form">
+      <label>dist <input id="impDist" value="libwidget"/></label>
+      <label>version <input id="impVer" value="1.2.0" placeholder="semver"/></label>
+      <textarea id="impJson" rows="10" placeholder='{"platform":"linux","arch":"x86_64","extractor":{...},...}'></textarea>
+      <button type="submit">导入（重复内容自动去重）</button>
+    </form>
+    <pre id="importResult"></pre>
+  </section>
+
+  <!-- ============ RULES TAB ============ -->
+  <section id="tab-rules" class="tab hidden">
+    <h2>平台 / 架构规则集（修订并存，历史比较可重现）</h2>
+    <div id="ruleList"></div>
+  </section>
+</main>
+
+<!-- decision dialog -->
+<dialog id="decDialog">
+  <form method="dialog" id="decForm">
+    <h3>决议 / 例外 — <span id="decSymbol"></span></h3>
+    <p class="meta" id="decKind"></p>
+    <label>平台作用域
+      <select id="decPlatform">
+        <option value="*">全部平台 (*)</option>
+        <option value="linux">linux</option>
+        <option value="windows">windows</option>
+        <option value="macos">macos</option>
+      </select>
+    </label>
+    <label>决定
+      <select id="decDecision">
+        <option value="EXCEPTION">EXCEPTION（例外，需要有效期）</option>
+        <option value="ACCEPT_BREAK">ACCEPT_BREAK（接受破坏性变化）</option>
+        <option value="REJECT_RELEASE">REJECT_RELEASE（拒绝该发行版）</option>
+      </select>
+    </label>
+    <label>理由 <input id="decReason"/></label>
+    <div id="scopeBox">
+      <label>scope from <input id="decFrom" value="1.1.0"/></label>
+      <label>scope to <input id="decTo" value="1.1.255"/></label>
+      <label>到期版本 expiresAt <input id="decExpires" value="1.1.255"/></label>
+    </div>
+    <label>提交人 <input id="decActor" value="reviewer"/></label>
+    <input type="hidden" id="decRev"/>
+    <menu>
+      <button value="cancel">取消</button>
+      <button id="decSave" value="save">提交</button>
+    </menu>
+    <pre id="decResult"></pre>
+  </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

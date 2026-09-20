@@ -1,0 +1,332 @@
+{
+  "platform": "linux",
+  "arch": "x86_64",
+  "extractor": {
+    "name": "nm-readelf",
+    "version": "2.40",
+    "source": "pipeline://libwidget/1.0.0/linux-x86_64"
+  },
+  "components": [
+    {
+      "stable_id": "libwidget.so",
+      "name": "libwidget.so.1",
+      "kind": "LIB",
+      "boundary": "PUBLIC"
+    },
+    {
+      "stable_id": "widget-internal",
+      "name": "internal",
+      "kind": "OBJECT",
+      "boundary": "PRIVATE"
+    }
+  ],
+  "symbols": [
+    {
+      "stable_id": "wgt_config_init",
+      "component": "libwidget.so",
+      "name": "wgt_config_init",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "calling_convention": "SYSV",
+      "variadic": false,
+      "detail": {
+        "return_type": "int",
+        "params": [
+          {
+            "name": "cfg",
+            "type": "struct wgt_config*"
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_log",
+      "component": "libwidget.so",
+      "name": "wgt_log",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "calling_convention": "SYSV",
+      "variadic": false,
+      "detail": {
+        "return_type": "void",
+        "params": [
+          {
+            "name": "level",
+            "type": "int"
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_compute",
+      "component": "libwidget.so",
+      "name": "wgt_compute",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "calling_convention": "SYSV",
+      "variadic": false,
+      "detail": {
+        "return_type": "int",
+        "params": [
+          {
+            "name": "ctx",
+            "type": "struct wgt_ctx*"
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_log_open",
+      "component": "libwidget.so",
+      "name": "wgt_log_open",
+      "kind": "FUNCTION",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "calling_convention": "SYSV",
+      "variadic": false,
+      "detail": {
+        "return_type": "int",
+        "params": []
+      }
+    },
+    {
+      "stable_id": "wgt_config",
+      "component": "libwidget.so",
+      "name": "wgt_config",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 32,
+      "align": 8,
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_config",
+        "tail_padding": true,
+        "tail_padding_bytes": 8,
+        "fields": [
+          {
+            "stable_id": "flags",
+            "name": "flags",
+            "type": "uint32_t",
+            "offset": 0,
+            "size": 4,
+            "align": 4
+          },
+          {
+            "stable_id": "_reserved1",
+            "name": "_reserved1",
+            "type": "uint32_t",
+            "offset": 4,
+            "size": 4,
+            "align": 4,
+            "reserved": true,
+            "reserved_id": "_reserved1"
+          },
+          {
+            "stable_id": "limit",
+            "name": "limit",
+            "type": "uint64_t",
+            "offset": 8,
+            "size": 8,
+            "align": 8
+          },
+          {
+            "stable_id": "name",
+            "name": "name",
+            "type": "const char*",
+            "offset": 16,
+            "size": 8,
+            "align": 8
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_packet",
+      "component": "libwidget.so",
+      "name": "wgt_packet",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 24,
+      "align": 8,
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_packet",
+        "tail_padding": false,
+        "tail_padding_bytes": 0,
+        "fields": [
+          {
+            "stable_id": "id",
+            "name": "id",
+            "type": "uint64_t",
+            "offset": 0,
+            "size": 8,
+            "align": 8
+          },
+          {
+            "stable_id": "len",
+            "name": "len",
+            "type": "uint32_t",
+            "offset": 8,
+            "size": 4,
+            "align": 4
+          },
+          {
+            "stable_id": "payload",
+            "name": "payload",
+            "type": "void*",
+            "offset": 16,
+            "size": 8,
+            "align": 8
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_view",
+      "component": "libwidget.so",
+      "name": "wgt_view",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 16,
+      "align": 8,
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_view",
+        "tail_padding": true,
+        "tail_padding_bytes": 8,
+        "fields": [
+          {
+            "stable_id": "data",
+            "name": "data",
+            "type": "void*",
+            "offset": 0,
+            "size": 8,
+            "align": 8
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_flags",
+      "component": "libwidget.so",
+      "name": "wgt_flags",
+      "kind": "TYPE_RECORD",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 4,
+      "align": 4,
+      "detail": {
+        "record_kind": "STRUCT",
+        "tag": "wgt_flags",
+        "fields": [
+          {
+            "stable_id": "enabled",
+            "name": "enabled",
+            "type": "unsigned",
+            "offset": 0,
+            "size": 4,
+            "align": 4,
+            "bitfield": true,
+            "bitfield_offset_bits": 0,
+            "bitfield_width_bits": 1
+          },
+          {
+            "stable_id": "mode",
+            "name": "mode",
+            "type": "unsigned",
+            "offset": 0,
+            "size": 4,
+            "align": 4,
+            "bitfield": true,
+            "bitfield_offset_bits": 1,
+            "bitfield_width_bits": 3
+          }
+        ]
+      }
+    },
+    {
+      "stable_id": "wgt_empty",
+      "component": "libwidget.so",
+      "name": "wgt_empty",
+      "kind": "TYPE_ZERO",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 0,
+      "align": 1,
+      "zero_sized": true,
+      "detail": {}
+    },
+    {
+      "stable_id": "wgt_version_string",
+      "component": "libwidget.so",
+      "name": "wgt_version_string",
+      "kind": "VARIABLE",
+      "boundary": "PUBLIC",
+      "visibility": "DEFAULT",
+      "binding": "GLOBAL",
+      "size": 8,
+      "align": 8,
+      "detail": {
+        "type": "const char*"
+      }
+    },
+    {
+      "stable_id": "wgt_internal_compute",
+      "component": "widget-internal",
+      "name": "wgt_internal_compute",
+      "kind": "FUNCTION",
+      "boundary": "PRIVATE",
+      "visibility": "HIDDEN",
+      "binding": "LOCAL",
+      "calling_convention": "SYSV",
+      "variadic": false,
+      "detail": {
+        "return_type": "int",
+        "params": [
+          {
+            "name": "cfg",
+            "type": "struct wgt_config*"
+          }
+        ]
+      }
+    }
+  ],
+  "aliases": [],
+  "refs": [
+    {
+      "from": "wgt_config_init",
+      "to": "wgt_config",
+      "kind": "PARAM"
+    },
+    {
+      "from": "wgt_compute",
+      "to": "wgt_internal_compute",
+      "kind": "CALL"
+    },
+    {
+      "from": "wgt_internal_compute",
+      "to": "wgt_config",
+      "kind": "PARAM"
+    },
+    {
+      "from": "wgt_compute",
+      "to": "wgt_packet",
+      "kind": "PARAM"
+    }
+  ]
+}
