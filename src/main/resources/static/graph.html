@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>ABI 引用图</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <span class="brand">ABI Compare</span>
+  <a href="/">快照与比较</a>
+  <a id="navDiff">差异页面</a>
+  <a href="#" class="active">引用图</a>
+</header>
+<main>
+  <div class="card">
+    <h1 id="title">引用图</h1>
+    <div class="muted" id="meta"></div>
+    <div class="legend">
+      <span><i style="background:#c0392b"></i>发生变化的符号</span>
+      <span><i style="background:#d68910"></i>受影响公开入口</span>
+      <span><i style="background:#2874a6"></i>其他符号</span>
+      <span><i style="background:#7d3c98"></i>发生变化的类型</span>
+    </div>
+  </div>
+  <div class="card">
+    <svg id="graph"></svg>
+  </div>
+  <div class="card">
+    <h2>受影响公开入口及路径</h2>
+    <table>
+      <thead><tr><th>入口</th><th>stable_id</th><th>影响路径（变更点 ← 引用者）</th></tr></thead>
+      <tbody id="impactRows"></tbody>
+    </table>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+const id = qs('id');
+document.getElementById('navDiff').href = '/diff.html?id=' + encodeURIComponent(id);
+
+async function main() {
+  const diff = await api('/comparisons/' + encodeURIComponent(id));
+  window.diff = diff;
+  document.getElementById('title').textContent =
+    `${diff.component}: ${diff.oldRelease} → ${diff.newRelease} 引用图`;
+  document.getElementById('meta').textContent =
+    `${diff.platform}/${diff.arch} · ${diff.ruleSetId} v${diff.ruleSetVersion}`;
+
+  const [oldSnap, newSnap] = await Promise.all([
+    api('/snapshots/' + diff.oldSnapshotHash),
+    api('/snapshots/' + diff.newSnapshotHash)
+  ]);
+
+  const nodes = new Map();
+  const edges = [];
+  const addNode = (stableId, name, group) => {
+    if (!nodes.has(stableId)) nodes.set(stableId, { id: stableId, name, group });
+  };
+  const changedSymbols = new Set(
+    diff.symbols.filter((e) => e.changes.length).map((e) => e.stableId));
+  const changedTypes = new Set(
+    diff.types.filter((e) => e.changes.length).map((e) => e.stableId));
+  const impacted = new Set(diff.affectedPublicEntries.map((e) => e.stableId));
+  const impactedPaths = new Map(diff.affectedPublicEntries.map(
+    (e) => [e.stableId, e.impactPaths || []]));
+
+  const typeById = new Map();
+  [...oldSnap.types, ...newSnap.types].forEach((t) => typeById.set(t.stableId, t));
+
+  [...oldSnap.symbols, ...newSnap.symbols].forEach((s, i, arr) => {
+    const rep = newSnap.symbols.find((x) => x.stableId === s.stableId) || s;
+    let group = 'node';
+    if (changedSymbols.has(s.stableId)) group = 'changed';
+    if (impacted.has(s.stableId)) group = 'impacted';
+    addNode(s.stableId, rep.name, group);
+    (s.references || []).forEach((ref) => {
+      const repRef = newSnap.symbols.find((x) => x.stableId === ref)
+        || oldSnap.symbols.find((x) => x.stableId === ref);
+      if (repRef) {
+        addNode(ref, repRef.name,
+          changedSymbols.has(ref) ? 'changed' : (impacted.has(ref) ? 'impacted' : 'node'));
+      }
+      edges.push({ from: s.stableId, to: ref, type: 'ref' });
+    });
+    const usedTypes = new Set([rep.returnType,
+      ...(rep.parameters || []).map((p) => p.type)].filter(Boolean));
+    usedTypes.forEach((tid) => {
+      if (typeById.has(tid)) {
+        addNode('type:' + tid, typeById.get(tid).name,
+          changedTypes.has(tid) ? 'typechanged' : 'type');
+        edges.push({ from: s.stableId, to: 'type:' + tid, type: 'type' });
+      }
+    });
+  });
+
+  renderGraph([...nodes.values()], edges, impactedPaths);
+
+  document.getElementById('impactRows').innerHTML = diff.affectedPublicEntries.map((e) => `
+    <tr>
+      <td class="mono">${esc(e.newName || e.oldName)}</td>
+      <td class="mono">${esc(e.stableId)}</td>
+      <td class="paths">${(e.impactPaths || []).map((p) =>
+        `<span class="path">${esc(p.map((x) => x.replace(/^type:/, '⚙ ')).join(' ← '))}</span>`).join(' ')}</td>
+    </tr>`).join('') || '<tr><td colspan="3" class="muted">无受影响入口</td></tr>';
+}
+
+function renderGraph(rawNodes, rawEdges, impactedPaths) {
+  const svg = document.getElementById('graph');
+  const W = svg.clientWidth || 1100;
+  const H = 620;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+
+  const nodeMap = new Map(rawNodes.map((n) => [n.id, { ...n, x: W / 2, y: H / 2, vx: 0, vy: 0 }]));
+  const edges = rawEdges.filter((e) => nodeMap.has(e.from) && nodeMap.has(e.to));
+  const colors = {
+    node: '#2874a6', changed: '#c0392b', impacted: '#d68910',
+    type: '#85929e', typechanged: '#7d3c98'
+  };
+
+  // seed: changed/type nodes in the center band, impacted entries toward edges
+  let i = 0;
+  nodeMap.forEach((n) => {
+    const angle = (i / Math.max(1, nodeMap.size)) * Math.PI * 2;
+    const radius = n.group === 'changed' || n.group === 'typechanged' ? 140
+      : n.group === 'impacted' ? 260 : 210;
+    n.x = W / 2 + Math.cos(angle) * radius + (Math.random() - 0.5) * 40;
+    n.y = H / 2 + Math.sin(angle) * radius * 0.7 + (Math.random() - 0.5) * 40;
+    n.vx = n.vy = 0;
+    i++;
+  });
+
+  const pathSet = new Set();
+  impactedPaths.forEach((paths) => paths.forEach((p) => {
+    for (let k = 0; k < p.length - 1; k++) pathSet.add(p[k + 1] + '->' + p[k]);
+  }));
+
+  const gEls = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.appendChild(gEls);
+  const edgeEls = new Map();
+  edges.forEach((e) => {
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    const onImpact = pathSet.has(e.from + '->' + e.to);
+    line.setAttribute('stroke', onImpact ? '#d68910' : (e.type === 'type' ? '#c39bd3' : '#b9c4ce'));
+    line.setAttribute('stroke-width', onImpact ? 2.2 : 1);
+    line.setAttribute('stroke-dasharray', e.type === 'type' ? '4 3' : '');
+    gEls.appendChild(line);
+    edgeEls.set(e, line);
+  });
+  const nodeEls = new Map();
+  nodeMap.forEach((n) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.style.cursor = 'pointer';
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('r', n.id.startsWith('type:') ? 9 : 11);
+    circle.setAttribute('fill', colors[n.group] || colors.node);
+    circle.setAttribute('stroke', '#fff');
+    circle.setAttribute('stroke-width', 2);
+    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    label.textContent = n.id.startsWith('type:') ? '⚙ ' + n.name : n.name;
+    label.setAttribute('font-size', 10);
+    label.setAttribute('fill', '#2b3a4a');
+    label.setAttribute('x', 14);
+    label.setAttribute('y', 4);
+    g.appendChild(circle);
+    g.appendChild(label);
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = n.id;
+    g.appendChild(title);
+    gEls.appendChild(g);
+    nodeEls.set(n.id, g);
+
+    // drag
+    let dragging = false;
+    g.addEventListener('mousedown', () => { dragging = true; });
+    window.addEventListener('mouseup', () => { dragging = false; });
+    svg.addEventListener('mousemove', (ev) => {
+      if (!dragging) return;
+      const rect = svg.getBoundingClientRect();
+      n.x = (ev.clientX - rect.left) * (W / rect.width);
+      n.y = (ev.clientY - rect.top) * (H / rect.height);
+      n.vx = n.vy = 0;
+    });
+  });
+
+  function tick() {
+    const arr = [...nodeMap.values()];
+    for (let a = 0; a < arr.length; a++) {
+      for (let b = a + 1; b < arr.length; b++) {
+        const u = arr[a], v = arr[b];
+        let dx = u.x - v.x, dy = u.y - v.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 0.01) { d2 = 0.01; dx = 0.1; dy = 0.1; }
+        const force = 2600 / d2;
+        const d = Math.sqrt(d2);
+        u.vx += (dx / d) * force; u.vy += (dy / d) * force;
+        v.vx -= (dx / d) * force; v.vy -= (dy / d) * force;
+      }
+    }
+    edges.forEach((e) => {
+      const u = nodeMap.get(e.from), v = nodeMap.get(e.to);
+      const dx = v.x - u.x, dy = v.y - u.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const target = 130;
+      const force = (d - target) * 0.02;
+      u.vx += (dx / d) * force; u.vy += (dy / d) * force;
+      v.vx -= (dx / d) * force; v.vy -= (dy / d) * force;
+    });
+    arr.forEach((n) => {
+      n.vx += (W / 2 - n.x) * 0.002;
+      n.vy += (H / 2 - n.y) * 0.002;
+      n.vx *= 0.85; n.vy *= 0.85;
+      n.x = Math.max(40, Math.min(W - 40, n.x + n.vx));
+      n.y = Math.max(30, Math.min(H - 30, n.y + n.vy));
+    });
+    edges.forEach((e) => {
+      const u = nodeMap.get(e.from), v = nodeMap.get(e.to);
+      const line = edgeEls.get(e);
+      line.setAttribute('x1', u.x); line.setAttribute('y1', u.y);
+      line.setAttribute('x2', v.x); line.setAttribute('y2', v.y);
+    });
+    nodeMap.forEach((n) => {
+      nodeEls.get(n.id).setAttribute('transform', `translate(${n.x},${n.y})`);
+    });
+  }
+  let ticks = 0;
+  const timer = setInterval(() => {
+    tick();
+    if (++ticks > 420) clearInterval(timer);
+  }, 16);
+}
+main().catch((e) => toast('加载失败: ' + e.message));
+</script>
+</body>
+</html>

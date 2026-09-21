@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "component": "libwidget",
+  "release": "2.0.0",
+  "platform": "windows",
+  "arch": "amd64",
+  "extractor": {"name": "dumpbin-abi", "version": "14.4"},
+  "symbols": [
+    {
+      "stableId": "libwidget.widget_init",
+      "name": "?widget_init@@YA?AWResult@@UConfig@@I@Z",
+      "kind": "FUNCTION",
+      "linkage": "EXPORTED",
+      "visibility": "PUBLIC",
+      "callingConvention": "stdcall",
+      "variadic": false,
+      "returnType": "libwidget.i32",
+      "parameters": [{"name": "cfg", "type": "libwidget.Config"},
+                     {"name": "flags", "type": "libwidget.u32"}],
+      "versionTag": "widget20.dll",
+      "aliases": ["widget_init", "widget_init_ex"]
+    },
+    {
+      "stableId": "libwidget.widget_run",
+      "name": "?widget_run@@YA?AWResult@@UPacket@@@Z",
+      "kind": "FUNCTION",
+      "linkage": "EXPORTED",
+      "visibility": "PUBLIC",
+      "callingConvention": "ms",
+      "variadic": false,
+      "returnType": "libwidget.i32",
+      "parameters": [{"name": "p", "type": "libwidget.Packet"}],
+      "references": ["libwidget.widget_init"]
+    }
+  ],
+  "types": [
+    {
+      "stableId": "libwidget.Config",
+      "kind": "STRUCT",
+      "name": "struct Config",
+      "size": 32,
+      "alignment": 8,
+      "tailPadding": 0,
+      "fields": [
+        {"name": "flags", "type": "libwidget.u32", "offset": 0, "size": 4},
+        {"name": "mode", "type": "libwidget.u32", "offset": 4, "size": 4},
+        {"name": "timeout_ms", "type": "libwidget.u64", "offset": 8, "size": 8},
+        {"name": "name", "type": "libwidget.ptr", "offset": 16, "size": 8},
+        {"name": "ctx", "type": "libwidget.ptr", "offset": 24, "size": 8}
+      ]
+    },
+    {
+      "stableId": "libwidget.Packet",
+      "kind": "STRUCT",
+      "name": "struct Packet",
+      "size": 32,
+      "alignment": 8,
+      "tailPadding": 0,
+      "fields": [
+        {"name": "id", "type": "libwidget.u32", "offset": 0, "size": 4},
+        {"name": "kind", "type": "libwidget.u8", "offset": 4, "size": 1},
+        {"name": "len", "type": "libwidget.u32", "offset": 8, "size": 4},
+        {"name": "data", "type": "libwidget.ptr", "offset": 16, "size": 8},
+        {"name": "tag", "type": "libwidget.u64", "offset": 24, "size": 8, "privateField": true}
+      ]
+    }
+  ]
+}

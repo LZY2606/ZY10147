@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>ABI 差异</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <span class="brand">ABI Compare</span>
+  <a href="/">快照与比较</a>
+  <a href="#" class="active">差异页面</a>
+  <a id="navGraph">引用图</a>
+</header>
+<main>
+  <div class="card">
+    <h1 id="title">加载中…</h1>
+    <div class="muted" id="meta"></div>
+    <div class="counts" id="counts" style="margin-top:10px"></div>
+    <div class="filter">
+      <label>过滤</label>
+      <select id="severityFilter">
+        <option value="">全部</option>
+        <option value="BREAKING">仅 BREAKING</option>
+        <option value="WARNING">WARNING+</option>
+      </select>
+      <label style="margin-left:20px">范围</label>
+      <select id="groupFilter">
+        <option value="all">符号 + 类型</option>
+        <option value="symbols">仅符号</option>
+        <option value="types">仅类型</option>
+        <option value="affected">受影响公开入口</option>
+      </select>
+      <span class="muted">比较版本 <b id="cmpVersion"></b>（决议并发依据）</span>
+    </div>
+  </div>
+  <div id="entries"></div>
+</main>
+<script src="/common.js"></script>
+<script>
+const id = qs('id');
+document.getElementById('navGraph').href = '/graph.html?id=' + encodeURIComponent(id);
+let data;
+
+const rank = { BREAKING: 0, WARNING: 1, COMPATIBLE: 2, INFO: 3 };
+
+function entryCard(entry, typeLabel) {
+  const sev = entry.changes.map((c) => c.severity);
+  const top = sev.sort((a, b) => rank[a] - rank[b])[0] || 'INFO';
+  const names = entry.oldName !== entry.newName
+    ? `<span class="from mono">${esc(entry.oldName || '')}</span> → <span class="to mono">${esc(entry.newName || '')}</span>`
+    : `<span class="mono">${esc(entry.newName || entry.oldName || '')}</span>`;
+  const impact = entry.impactPaths && entry.impactPaths.length
+    ? `<div class="paths">受影响路径: ${entry.impactPaths.slice(0, 4).map((p) =>
+        `<span class="path">${esc(p.join(' ← '))}</span>`).join(' ')}
+        <a href="/graph.html?id=${encodeURIComponent(id)}">查看引用图</a></div>` : '';
+  return `<div class="entry" data-severity="${top}" data-group="${typeLabel}">
+    <div class="head" onclick="this.parentElement.classList.toggle('open')">
+      <span class="badge ${top}">${top}</span>
+      <span class="pill">${esc(typeLabel)}</span>
+      ${names}
+      <span class="muted mono">${esc(entry.stableId)}</span>
+      <span class="muted">${entry.changes.length} 项变化</span>
+    </div>
+    <div class="body">
+      ${entry.changes.map(renderChange).join('')}
+      ${impact}
+      ${renderDecisions(entry.decisions)}
+      ${decisionForm(entry)}
+    </div>
+  </div>`;
+}
+
+function decisionForm(entry) {
+  return `<div class="decision-form">
+    <div><label>结论</label>
+      <select data-field="verdict">
+        <option value="ACCEPT">ACCEPT（批准例外）</option>
+        <option value="REJECT">REJECT（确认破坏）</option>
+      </select></div>
+    <div><label>平台范围</label>
+      <select data-field="platform">
+        <option value="*">* 全部平台</option>
+        <option value="linux">linux</option>
+        <option value="windows">windows</option>
+        <option value="darwin">darwin</option>
+      </select></div>
+    <div><label>生效版本 effectiveFrom</label><input data-field="effectiveFrom" value="${esc(data.newRelease)}"></div>
+    <div><label>到期版本 expiresAfterVersion</label><input data-field="expiresAfterVersion" placeholder="如 2.9.0；规则变更不自动延长"></div>
+    <textarea data-field="rationale" placeholder="决议理由（与原始快照分开存储）"></textarea>
+    <button class="primary" onclick="submitDecision('${esc(entry.stableId)}', this)">提交决议（基础比较版本 ${data.version}）</button>
+  </div>`;
+}
+
+async function submitDecision(stableId, btn) {
+  const form = btn.closest('.decision-form');
+  const get = (f) => form.querySelector(`[data-field="${f}"]`).value;
+  const payload = {
+    stableId,
+    verdict: get('verdict'),
+    platform: get('platform'),
+    effectiveFrom: get('effectiveFrom'),
+    expiresAfterVersion: get('expiresAfterVersion') || null,
+    rationale: get('rationale'),
+    changeKind: null,
+    baseVersion: data.version
+  };
+  btn.disabled = true;
+  try {
+    await api(`/comparisons/${encodeURIComponent(id)}/decisions`,
+      { method: 'POST', body: JSON.stringify(payload) });
+    toast('决议已记录，比较版本递增');
+    load();
+  } catch (e) {
+    if (e.body && e.body.error === 'DECISION_CONFLICT') {
+      const c = e.body.conflicts || [];
+      toast(`符号级冲突（当前版本 ${e.body.currentVersion}）: `
+        + c.map((x) => `${x.stable_id}[${x.platform}]=${x.verdict}`).join(', '));
+    } else {
+      toast('决议失败: ' + e.message);
+    }
+    btn.disabled = false;
+  }
+}
+
+function applyFilter() {
+  const sev = document.getElementById('severityFilter').value;
+  const group = document.getElementById('groupFilter').value;
+  document.querySelectorAll('.entry').forEach((el) => {
+    let show = true;
+    if (sev) {
+      const order = ['BREAKING', 'WARNING', 'COMPATIBLE', 'INFO'];
+      show = order.indexOf(el.dataset.severity) <= order.indexOf(sev === 'WARNING' ? 'WARNING' : sev);
+      if (sev === 'WARNING' && el.dataset.severity === 'COMPATIBLE') show = false;
+    }
+    if (group !== 'all' && el.dataset.group !== group) show = false;
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+async function load() {
+  data = await api('/comparisons/' + encodeURIComponent(id));
+  document.getElementById('title').textContent =
+    `${data.component}: ${data.oldRelease} → ${data.newRelease}`;
+  document.getElementById('meta').innerHTML =
+    `${esc(data.platform)}/${esc(data.arch)} · 规则集 <b>${esc(data.ruleSetId)}</b> v${esc(data.ruleSetVersion)}
+     · 新快照 <span class="mono">${esc((data.newSnapshotHash || '').slice(0,16))}…</span>`;
+  document.getElementById('cmpVersion').textContent = data.version;
+  const c = data.counts || {};
+  document.getElementById('counts').innerHTML =
+    ['BREAKING', 'WARNING', 'COMPATIBLE', 'INFO', 'entriesWithChanges']
+      .map((k) => `<span class="pill">${k}: ${c[k] ?? 0}</span>`).join('');
+
+  const html = [
+    ...data.symbols.map((e) => entryCard(e, 'symbols')),
+    ...data.types.map((e) => entryCard(e, 'types')),
+    ...data.affectedPublicEntries.map((e) => entryCard({
+      ...e, changes: e.changes.length ? e.changes : [{
+        kind: 'TRANSITIVE_IMPACT', severity: 'WARNING',
+        detail: '公开入口沿引用图可达某变更点', from: null, to: null
+      }]
+    }, 'affected'))
+  ].join('');
+  document.getElementById('entries').innerHTML = html || '<div class="card muted">无变化</div>';
+  applyFilter();
+}
+
+document.getElementById('severityFilter').onchange = applyFilter;
+document.getElementById('groupFilter').onchange = applyFilter;
+load();
+</script>
+</body>
+</html>

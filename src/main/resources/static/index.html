@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>ABI Compare · 发行版 ABI 差异</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header>
+  <span class="brand">ABI Compare</span>
+  <a href="/" class="active">快照与比较</a>
+  <a id="navDiff">差异页面</a>
+  <a id="navGraph">引用图</a>
+</header>
+<main>
+  <div class="card">
+    <h1>比较两个发行版</h1>
+    <div class="row">
+      <div>
+        <label>旧发行版快照</label>
+        <select id="oldSnap" style="min-width:300px"></select>
+      </div>
+      <div>
+        <label>新发行版快照</label>
+        <select id="newSnap" style="min-width:300px"></select>
+      </div>
+      <div>
+        <label>平台规则集</label>
+        <select id="ruleSet" style="min-width:260px"></select>
+      </div>
+      <button class="primary" id="compareBtn">执行原子比较</button>
+    </div>
+    <p class="muted" id="compareHint"></p>
+  </div>
+
+  <div class="card">
+    <h2>已有比较（按内容哈希与规则集去重）</h2>
+    <table>
+      <thead><tr><th>组件</th><th>旧 → 新</th><th>平台/架构</th><th>规则集</th><th>版本</th><th></th></tr></thead>
+      <tbody id="comparisonRows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>已导入快照</h2>
+    <table>
+      <thead><tr><th>组件</th><th>发行版</th><th>平台/架构</th><th>提取器</th><th>内容哈希</th></tr></thead>
+      <tbody id="snapshotRows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>导入提取器 JSON</h2>
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <textarea id="uploadJson" rows="8" placeholder='{"schemaVersion":1,"component":"...","release":"...","platform":"linux","arch":"aarch64",...}'></textarea>
+      <div><button class="primary" id="uploadBtn">上传（内容哈希去重）</button></div>
+    </div>
+  </div>
+</main>
+<script src="/common.js"></script>
+<script>
+async function load() {
+  const [snapshots, rules, comparisons] = await Promise.all([
+    api('/snapshots'), api('/rules'), api('/comparisons')
+  ]);
+  window._snapshots = snapshots;
+  window._rules = rules;
+
+  const label = (s) => `${s.component} ${s.release} [${s.platform}/${s.arch}] `
+    + `${s.content_hash ?? s.contentHash}`;
+  const oldSel = document.getElementById('oldSnap');
+  const newSel = document.getElementById('newSnap');
+  snapshots.forEach((s, i) => {
+    oldSel.insertAdjacentHTML('beforeend', `<option value="${s.content_hash}">${esc(label(s))}</option>`);
+    newSel.insertAdjacentHTML('beforeend', `<option value="${s.content_hash}">${esc(label(s))}</option>`);
+  });
+  // default selection: oldest linux -> newest linux
+  const linux = snapshots.filter((s) => s.platform === 'linux');
+  if (linux.length >= 2) {
+    oldSel.value = linux[0].content_hash;
+    newSel.value = linux[linux.length - 1].content_hash;
+  }
+  const ruleSel = document.getElementById('ruleSet');
+  rules.forEach((r) => ruleSel.insertAdjacentHTML('beforeend',
+    `<option value="${esc(r.id)}">${esc(r.id)} v${esc(r.version)} — ${esc(r.description)}</option>`));
+
+  document.getElementById('snapshotRows').innerHTML = snapshots.map((s) => `
+    <tr>
+      <td>${esc(s.component)}</td><td>${esc(s.release)}</td>
+      <td>${esc(s.platform)}/${esc(s.arch)}</td>
+      <td class="mono">${esc(s.extractor_name || '')} ${esc(s.extractor_version || '')}</td>
+      <td class="mono">${esc((s.content_hash || '').slice(0, 16))}…</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="muted">无快照</td></tr>';
+
+  document.getElementById('comparisonRows').innerHTML = comparisons.map((c) => `
+    <tr>
+      <td>${esc(c.component)}</td>
+      <td>${esc(c.old_release)} → ${esc(c.new_release)}</td>
+      <td>${esc(c.platform)}/${esc(c.arch)}</td>
+      <td class="mono">${esc(c.rule_set_id)} v${esc(c.rule_set_version)}</td>
+      <td>v${c.version}</td>
+      <td>
+        <a href="/diff.html?id=${encodeURIComponent(c.id)}">差异</a> ·
+        <a href="/graph.html?id=${encodeURIComponent(c.id)}">引用图</a>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" class="muted">尚无比较</td></tr>';
+}
+
+document.getElementById('compareBtn').onclick = async () => {
+  const body = {
+    oldSnapshotHash: document.getElementById('oldSnap').value,
+    newSnapshotHash: document.getElementById('newSnap').value,
+    ruleSetId: document.getElementById('ruleSet').value
+  };
+  document.getElementById('compareHint').textContent = '比较中（同一快照对+规则集为原子幂等操作）…';
+  try {
+    const result = await api('/comparisons', { method: 'POST', body: JSON.stringify(body) });
+    location.href = '/diff.html?id=' + encodeURIComponent(result.id);
+  } catch (e) {
+    document.getElementById('compareHint').textContent = '失败: ' + e.message;
+  }
+};
+
+document.getElementById('uploadBtn').onclick = async () => {
+  try {
+    const json = JSON.parse(document.getElementById('uploadJson').value);
+    const r = await api('/snapshots', { method: 'POST', body: JSON.stringify(json) });
+    toast('已导入 ' + r.contentHash.slice(0, 16) + (r.deduped ? '（去重命中）' : ''));
+    load();
+  } catch (e) {
+    toast('导入失败: ' + e.message);
+  }
+};
+
+document.getElementById('navDiff').href = 'javascript:void(0)';
+document.getElementById('navGraph').href = 'javascript:void(0)';
+load();
+</script>
+</body>
+</html>
